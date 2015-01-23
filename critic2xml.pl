@@ -9,8 +9,15 @@ use Perl::Critic::Utils;
 use Carp qw(croak);
 use MCE::Map;
 
-# TODO: critic args handling
 my %CRITIC_ARGS = ();
+
+for (@ARGV) {
+    if (/^-/) {
+        s/^--/-/;
+        my ($opt, $arg) = split /=/;
+        $CRITIC_ARGS{$opt} = $arg;
+    }
+}
 
 sub critic_file {
     my ( $file ) = @_;
