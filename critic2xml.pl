@@ -5,19 +5,11 @@ use strict;
 use XML::Simple qw(XMLout);
 use Perl::Critic qw();
 use Perl::Critic::Violation qw();
-use Perl::Critic::Utils;
+use Perl::Critic::Utils qw();
 use Carp qw(croak);
 use MCE::Map;
 
 my %CRITIC_ARGS = ();
-
-for (@ARGV) {
-    if (/^-/) {
-        s/^--/-/;
-        my ($opt, $arg) = split /=/;
-        $CRITIC_ARGS{$opt} = $arg;
-    }
-}
 
 sub critic_file {
     my ( $file ) = @_;
@@ -42,9 +34,30 @@ sub critic_files_or_dirs {
     mce_map { critic_file($_) } @files;
 }
 
+unless (@ARGV >= 3) {
+    print "usage: $0 ouput-file [ -critic-opt=value ] -- inputs\n";
+    exit 1;
+}
 
-my %files;
+my $output = shift @ARGV;
+
+while (@ARGV) {
+    $_ = shift;
+    if ($_ eq "--") { last };
+    my ($opt, $arg);
+    if (/^-/) {
+        if (/=/) {
+            ($opt, $arg) = split /=/;
+            $CRITIC_ARGS{$opt} = $arg;
+        }
+        else {
+            $CRITIC_ARGS{$opt} = 1;
+        }
+    }
+}
+
 my @violations = critic_files_or_dirs(@ARGV);
+my %files;
 
 for (@violations) {
     push @{$files{$_->filename()}}, { 
@@ -58,5 +71,9 @@ for (@violations) {
 
 @_ = map { { name => $_, error => $files{$_} }  } sort { $a cmp $b } keys %files;
 
-# TODO: version attribute to root element
-print XMLout({ file => \@_ }, RootName => 'checkstyle' );
+open my $out, ">", $output;
+print $out "<?xml version='1.0' encoding='UTF-8'?>\n";
+print $out "<checkstyle version='4.3'>\n";
+print $out XMLout({ file => \@_ }, RootName => undef );
+print $out "</checkstyle>\n";
+close $out;
